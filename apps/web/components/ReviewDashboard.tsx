@@ -42,8 +42,7 @@ export default function ReviewDashboard({ lead, variants }: Props) {
 
   async function regenerate() {
     setStatus("loading");
-    const pipelineUrl = process.env.NEXT_PUBLIC_PIPELINE_SERVICE_URL;
-    await fetch(`${pipelineUrl}/leads/${lead.id}/regenerate`, { method: "POST" });
+    await fetch(`/api/leads/${lead.id}/regenerate`, { method: "POST" });
     setStatus("idle");
     window.location.reload();
   }

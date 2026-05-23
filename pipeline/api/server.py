@@ -109,6 +109,17 @@ async def generate_case_studies(
     return {"ok": True, "message": "case study generation started"}
 
 
+@app.post("/content/generate")
+async def generate_content_packages(
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(default=None),
+):
+    """Generate monthly caption packages for all active clients."""
+    _auth(authorization)
+    background_tasks.add_task(_do_content)
+    return {"ok": True, "message": "content generation started"}
+
+
 def _do_run(query: str, location: str, limit: int):
     from run_pipeline import run
     run(query, location, limit)
@@ -122,6 +133,11 @@ def _do_referral():
 def _do_snapshots():
     from snapshot_updater import update_all_snapshots
     update_all_snapshots()
+
+
+def _do_content():
+    from content_generator import generate_all as gen_content
+    gen_content()
 
 
 def _do_case_studies():

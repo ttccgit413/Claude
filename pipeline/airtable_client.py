@@ -113,6 +113,15 @@ def get_client_by_report_slug(slug: str) -> Optional[dict]:
 # ── MonthlySnapshots ────────────────────────────────────────────────────────
 
 
+def get_monthly_snapshots(client_id: str) -> list[dict]:
+    table = _get_base().table("MonthlySnapshots")
+    records = table.all(
+        formula=f"{{client_id}} = '{client_id}'",
+        sort=[{"field": "month", "direction": "asc"}],
+    )
+    return [{"id": r["id"], **r["fields"]} for r in records]
+
+
 def upsert_monthly_snapshot(client_id: str, month: str, data: dict) -> None:
     table = _get_base().table("MonthlySnapshots")
     existing = table.all(
