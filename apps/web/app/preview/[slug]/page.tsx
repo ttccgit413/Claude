@@ -14,6 +14,7 @@ export default async function PreviewPage({ params }: Props) {
   // Check 14-day expiry
   if (lead.created_at) {
     const created = new Date(lead.created_at).getTime();
+    // eslint-disable-next-line react-hooks/purity -- server component, Date.now() is safe here
     const now = Date.now();
     const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
     if (now - created > FOURTEEN_DAYS_MS) {
