@@ -117,3 +117,104 @@ export async function getLeadByEmail(email: string): Promise<Lead | null> {
   if (!records.length) return null;
   return mapLead(records[0]);
 }
+
+// ── Clients ───────────────────────────────────────────────────────────────
+
+export interface Client {
+  id: string;
+  lead_id: string[];
+  monthly_fee: number;
+  report_slug: string;
+  report_password: string;
+  ig_access_token: string;
+  gmb_location_name: string;
+  gmb_access_token: string;
+  onboarded_at: string;
+}
+
+function mapClient(record: Airtable.Record<Airtable.FieldSet>): Client {
+  const f = record.fields as Record<string, unknown>;
+  return {
+    id: record.id,
+    lead_id: (f.lead_id as string[]) ?? [],
+    monthly_fee: (f.monthly_fee as number) ?? 0,
+    report_slug: (f.report_slug as string) ?? "",
+    report_password: (f.report_password as string) ?? "",
+    ig_access_token: (f.ig_access_token as string) ?? "",
+    gmb_location_name: (f.gmb_location_name as string) ?? "",
+    gmb_access_token: (f.gmb_access_token as string) ?? "",
+    onboarded_at: (f.onboarded_at as string) ?? "",
+  };
+}
+
+export async function getClientByReportSlug(slug: string): Promise<Client | null> {
+  const records = await base("Clients")
+    .select({ filterByFormula: `{report_slug} = '${slug}'` })
+    .firstPage();
+  if (!records.length) return null;
+  return mapClient(records[0]);
+}
+
+export async function updateClient(id: string, fields: Partial<Client>): Promise<void> {
+  await base("Clients").update(id, fields as Airtable.FieldSet);
+}
+
+// ── MonthlyStats ──────────────────────────────────────────────────────────
+// Snapshot stored monthly so we can show growth over time.
+
+export interface MonthlySnapshot {
+  id: string;
+  client_id: string[];
+  month: string;        // "2025-06"
+  followers: number;
+  google_rating: number;
+  posts_delivered: number;
+  top_post_url: string;
+  top_post_likes: number;
+  top_post_comments: number;
+  top_post_reach: number;
+}
+
+export async function getMonthlySnapshots(clientId: string): Promise<MonthlySnapshot[]> {
+  const records = await base("MonthlySnapshots")
+    .select({
+      filterByFormula: `{client_id} = '${clientId}'`,
+      sort: [{ field: "month", direction: "asc" }],
+    })
+    .all();
+  return records.map((r) => {
+    const f = r.fields as Record<string, unknown>;
+    return {
+      id: r.id,
+      client_id: (f.client_id as string[]) ?? [],
+      month: (f.month as string) ?? "",
+      followers: (f.followers as number) ?? 0,
+      google_rating: (f.google_rating as number) ?? 0,
+      posts_delivered: (f.posts_delivered as number) ?? 0,
+      top_post_url: (f.top_post_url as string) ?? "",
+      top_post_likes: (f.top_post_likes as number) ?? 0,
+      top_post_comments: (f.top_post_comments as number) ?? 0,
+      top_post_reach: (f.top_post_reach as number) ?? 0,
+    };
+  });
+}
+
+export async function upsertMonthlySnapshot(
+  clientId: string,
+  month: string,
+  data: Partial<Omit<MonthlySnapshot, "id" | "client_id" | "month">>
+): Promise<void> {
+  const existing = await base("MonthlySnapshots")
+    .select({ filterByFormula: `AND({client_id} = '${clientId}', {month} = '${month}')` })
+    .firstPage();
+
+  if (existing.length > 0) {
+    await base("MonthlySnapshots").update(existing[0].id, data as Airtable.FieldSet);
+  } else {
+    await base("MonthlySnapshots").create({
+      client_id: [clientId],
+      month,
+      ...data,
+    } as Airtable.FieldSet);
+  }
+}

@@ -108,3 +108,17 @@ def get_client_by_report_slug(slug: str) -> Optional[dict]:
         return None
     r = records[0]
     return {"id": r["id"], **r["fields"]}
+
+
+# ── MonthlySnapshots ────────────────────────────────────────────────────────
+
+
+def upsert_monthly_snapshot(client_id: str, month: str, data: dict) -> None:
+    table = _get_base().table("MonthlySnapshots")
+    existing = table.all(
+        formula=f"AND({{client_id}} = '{client_id}', {{month}} = '{month}')"
+    )
+    if existing:
+        table.update(existing[0]["id"], data)
+    else:
+        table.create({"client_id": [client_id], "month": month, **data})

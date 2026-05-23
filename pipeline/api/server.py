@@ -76,9 +76,38 @@ async def regenerate_images(
     return {"ok": True, "message": "regeneration started"}
 
 
+@app.post("/referral/trigger")
+async def trigger_referral_emails(
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(default=None),
+):
+    """Trigger Month 2 referral emails for clients onboarded 28-60 days ago."""
+    _auth(authorization)
+    background_tasks.add_task(_do_referral)
+    return {"ok": True, "message": "referral check started"}
+
+
+@app.post("/snapshots/update")
+async def update_monthly_snapshots(
+    authorization: str | None = Header(default=None),
+):
+    """Pull live IG + GMB data for all clients and store monthly snapshots in Airtable."""
+    _auth(authorization)
+    background_tasks_local: list = []
+    # import inline to avoid startup overhead
+    from snapshot_updater import update_all_snapshots
+    update_all_snapshots()
+    return {"ok": True}
+
+
 def _do_run(query: str, location: str, limit: int):
     from run_pipeline import run
     run(query, location, limit)
+
+
+def _do_referral():
+    from referral_email import check_and_trigger
+    check_and_trigger(dry_run=False)
 
 
 def _do_regenerate(lead_id: str):

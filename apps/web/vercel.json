@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/pipeline",
       "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/cron/snapshots",
+      "schedule": "0 0 1 * *"
+    },
+    {
+      "path": "/api/cron/referral",
+      "schedule": "0 1 * * *"
     }
   ]
 }
