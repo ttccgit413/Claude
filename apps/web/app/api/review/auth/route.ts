@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     httpOnly: true,
     sameSite: "lax",
     maxAge: 60 * 60 * 24 * 7, // 7 days
-    path: "/review",
+    path: "/",
   });
   return response;
 }

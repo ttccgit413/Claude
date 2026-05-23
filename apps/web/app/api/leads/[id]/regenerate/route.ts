@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -6,6 +7,11 @@ interface Props {
 
 // Server-side proxy so PIPELINE_SERVICE_URL and CRON_SECRET never reach the browser.
 export async function POST(_req: NextRequest, { params }: Props) {
+  const cookieStore = await cookies();
+  if (cookieStore.get("review_auth")?.value !== "1") {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const { id } = await params;
 
   const pipelineUrl = process.env.PIPELINE_SERVICE_URL;

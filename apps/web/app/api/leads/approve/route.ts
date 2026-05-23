@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { updateLead } from "@/lib/airtable";
 import slugify from "slugify";
 
 export async function POST(req: NextRequest) {
+  const cookieStore = await cookies();
+  if (cookieStore.get("review_auth")?.value !== "1") {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const { leadId, approvedImageUrl, businessName } = await req.json();
 
   if (!leadId || !approvedImageUrl || !businessName) {
