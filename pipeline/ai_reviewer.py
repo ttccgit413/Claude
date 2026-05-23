@@ -131,8 +131,4 @@ def review_images_for_lead(lead_id: str, s3_urls: list[str], business_name: str)
             best_avg = result["avg"]
             best_variant_id = variant["id"]
 
-    # mark the best variant as default suggestion for human reviewer
-    if best_variant_id:
-        db.update_image_variant(best_variant_id, {"approved": False})
-
     return any_pass
