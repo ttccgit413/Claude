@@ -24,14 +24,24 @@ export default async function ReportRoute({ params }: Props) {
     redirect(`/report/${slug}/login`);
   }
 
-  const client = await getClientByReportSlug(slug);
+  let client;
+  try {
+    client = await getClientByReportSlug(slug);
+  } catch {
+    notFound();
+  }
   if (!client) notFound();
 
   const leadId = client.lead_id[0];
-  const [lead, snapshots] = await Promise.all([
-    getLeadBySlug(slug),
-    getMonthlySnapshots(client.id),
-  ]);
+  let lead, snapshots;
+  try {
+    [lead, snapshots] = await Promise.all([
+      getLeadBySlug(slug),
+      getMonthlySnapshots(client.id),
+    ]);
+  } catch {
+    notFound();
+  }
   if (!lead) notFound();
 
   // fetch live IG data (fails gracefully)

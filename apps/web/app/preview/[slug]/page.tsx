@@ -8,7 +8,12 @@ interface Props {
 
 export default async function PreviewPage({ params }: Props) {
   const { slug } = await params;
-  const lead = await getLeadBySlug(slug);
+  let lead;
+  try {
+    lead = await getLeadBySlug(slug);
+  } catch {
+    notFound();
+  }
   if (!lead) notFound();
 
   // Check 14-day expiry
