@@ -89,15 +89,24 @@ async def trigger_referral_emails(
 
 @app.post("/snapshots/update")
 async def update_monthly_snapshots(
+    background_tasks: BackgroundTasks,
     authorization: str | None = Header(default=None),
 ):
     """Pull live IG + GMB data for all clients and store monthly snapshots in Airtable."""
     _auth(authorization)
-    background_tasks_local: list = []
-    # import inline to avoid startup overhead
-    from snapshot_updater import update_all_snapshots
-    update_all_snapshots()
-    return {"ok": True}
+    background_tasks.add_task(_do_snapshots)
+    return {"ok": True, "message": "snapshot update started"}
+
+
+@app.post("/case-studies/generate")
+async def generate_case_studies(
+    background_tasks: BackgroundTasks,
+    authorization: str | None = Header(default=None),
+):
+    """Auto-generate case studies for all eligible clients (needs ≥2 monthly snapshots)."""
+    _auth(authorization)
+    background_tasks.add_task(_do_case_studies)
+    return {"ok": True, "message": "case study generation started"}
 
 
 def _do_run(query: str, location: str, limit: int):
@@ -108,6 +117,16 @@ def _do_run(query: str, location: str, limit: int):
 def _do_referral():
     from referral_email import check_and_trigger
     check_and_trigger(dry_run=False)
+
+
+def _do_snapshots():
+    from snapshot_updater import update_all_snapshots
+    update_all_snapshots()
+
+
+def _do_case_studies():
+    from case_study import generate_all
+    generate_all()
 
 
 def _do_regenerate(lead_id: str):

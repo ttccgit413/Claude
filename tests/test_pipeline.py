@@ -3,6 +3,8 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "pipeline"))
 
+from case_study import _render_text
+
 from scorer import score_lead
 
 
@@ -194,3 +196,33 @@ def test_ai_review_avg_normalisation():
     low_avg = round(sum(low_scores.values()) / len(low_scores), 2)
     assert low_avg == 5.5
     assert (low_avg >= 7.0) is False  # should FAIL
+
+
+def test_case_study_text_rendering():
+    """Verify case study text contains all key before/after metrics."""
+    lead = {
+        "name": "Bella's Hair Salon",
+        "address": "342 Smith St, Collingwood VIC 3066",
+        "google_rating": 3.9,
+        "ig_days_inactive": 47,
+        "ig_avg_likes": 12,
+    }
+    first = {"followers": 340, "month": "2025-05"}
+    latest = {"followers": 389, "google_rating": 4.1, "posts_delivered": 12,
+              "top_post_likes": 47, "month": "2025-06"}
+
+    text = _render_text(lead, first, latest,
+                        follower_growth=49, follower_pct=14.4,
+                        rating_delta=0.2, top_likes=47,
+                        likes_multiplier=3.9, suburb="Collingwood")
+
+    assert "Bella's Hair Salon" in text
+    assert "340" in text        # before followers
+    assert "389" in text        # after followers
+    assert "+49" in text        # follower growth
+    assert "14.4%" in text      # pct growth
+    assert "3.9" in text        # before rating
+    assert "4.1" in text        # after rating
+    assert "47" in text         # top post likes
+    assert "12 posts" in text   # posts delivered
+    assert "Collingwood" in text
