@@ -14,6 +14,7 @@ An automated lead generation pipeline for a social media agency targeting local 
 │   └── api/server.py  # FastAPI app deployed to Railway
 ├── apps/web/          # Next.js 16 — all user-facing pages and webhooks
 │   ├── app/           # App Router pages and API routes
+│   │   └── page.tsx   # Public agency home page (configurable via env vars below)
 │   ├── components/    # LandingPage, ReportPage, ReviewDashboard
 │   └── lib/           # airtable.ts, instagram.ts, google-business.ts, twilio.ts
 ├── tests/             # Python unit tests (pytest)
@@ -95,13 +96,15 @@ Monthly crons:
 
 **Scoring thresholds are in `pipeline/scorer.py`.** Hot ≥ 90, Warm 60–89, Cold < 60. Only Hot leads enter the image generation step. The max score is 100 (inactive IG +40, followers >200 +15, reviews >20 +15, has website +15, rating <4.2 +15).
 
-**Claude Haiku is used for two things:** image QA review (`ai_reviewer.py`, scores 1–10 per image, PASS if avg ≥ 7.0) and caption generation (`content_generator.py`, 12 themed captions/month). Both use `claude-haiku-4-5-20251001`.
+**Claude Haiku is used for two things:** image QA review (`ai_reviewer.py`, scores 1–10 per image, PASS if avg ≥ 7.0) and caption generation (`content_generator.py`, 12 themed captions/month). Both use `claude-haiku-4-5-20251001`. `ai_reviewer.py` only writes `scores_json`, `avg_score`, and `verdict` to `ImageVariants` — it must never set the `approved` field, which is exclusively set by the human review dashboard.
 
 **GPT image-1** generates 3 image variants per lead. On AI review failure, it regenerates once with `refined=True` (adds anti-artefact instruction). If still failing, `pipeline_status = "ai_review_failed"` and the lead is skipped.
 
-**Auth pattern:** `/review` uses `REVIEW_PASSWORD` env var + httpOnly cookie (`review_auth=1`, 7-day, path `/review`). `/report/[slug]` uses per-client password stored in Airtable + httpOnly cookie (`report_auth_{slug}`, 30-day). Both gated by server-side cookie check before data fetch.
+**Auth pattern:** `/review` uses `REVIEW_PASSWORD` env var + httpOnly cookie (`review_auth=1`, 7-day, path `/` so it reaches `/api/leads/*` routes). `/report/[slug]` uses per-client password stored in Airtable + httpOnly cookie (`report_auth_{slug}`, 30-day). Both gated by server-side cookie check before data fetch. The three mutation endpoints called by the review dashboard — `POST /api/leads/approve`, `PATCH /api/leads/[id]`, `POST /api/leads/[id]/regenerate` — also check the `review_auth` cookie and return 401 if absent.
 
 **Cron security:** All cron endpoints check `Authorization: Bearer {CRON_SECRET}`. All Railway endpoints do the same. `PIPELINE_SERVICE_URL` is server-side only — never in `NEXT_PUBLIC_*`.
+
+**Agency branding** on the home page (`app/page.tsx`) is driven by two env vars: `NEXT_PUBLIC_AGENCY_NAME` (default `"Mike's Social"`) and `NEXT_PUBLIC_AGENCY_EMAIL` (default `"mike@youragency.com.au"`). Set these in Vercel to rebrand without touching code.
 
 ## Airtable tables
 
