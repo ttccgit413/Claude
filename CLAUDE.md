@@ -33,11 +33,18 @@ An automated lead generation pipeline for a social media agency targeting local 
 
 ### Python pipeline
 ```bash
-# Run tests
+# Run all tests (pipeline + scraper)
+python -m pytest tests/ -v
+
+# Run a single test file
 python -m pytest tests/test_pipeline.py -v
+python -m pytest tests/test_scraper.py -v
 
 # Run a single test
 python -m pytest tests/test_pipeline.py::test_posting_schedule_count -v
+
+# Test the scraper locally (needs open internet + playwright install chromium)
+python test_scraper_local.py
 
 # Run the full pipeline manually (needs real API keys in .env)
 python pipeline/run_pipeline.py --query "hair salons" --location "Melbourne" --limit 10
@@ -69,7 +76,7 @@ Always run `npm run build` from `apps/web/` before committing — it catches Typ
 ```
 Vercel cron (daily 06:00 AEST = 20:00 UTC)
   → POST /api/cron/pipeline → Railway POST /run
-      → scraper.py (Apify) → enricher.py (Instaloader + Playwright) → scorer.py
+      → scraper.py (Playwright/headless Chromium) → enricher.py (Instaloader + Playwright) → scorer.py
       → HOT leads (score ≥ 90): image_gen.py (GPT image-1 → S3) → ai_reviewer.py (Claude Haiku)
       → pipeline_status = "ready_for_review" → Twilio SMS to owner
 
@@ -94,7 +101,7 @@ Monthly crons:
 
 **`pipeline_status` field drives the pipeline.** A lead moves through: `scored → images_generated → ai_reviewed → ready_for_review → approved → email_sent → replied`. The review dashboard filters on `ready_for_review`; the cron skips anything already past that stage.
 
-**Scoring thresholds are in `pipeline/scorer.py`.** Hot ≥ 90, Warm 60–89, Cold < 60. Only Hot leads enter the image generation step. The max score is 100 (inactive IG +40, followers >200 +15, reviews >20 +15, has website +15, rating <4.2 +15).
+**Scoring thresholds are in `pipeline/scorer.py`.** Hot ≥ 90, Warm 60–89, Cold < 60. Only Hot leads enter the image generation step. The max score is 100 (inactive IG +40, followers >200 +15, reviews >20 +15, has website +15, rating <4.2 +15). Note: a business with NO Instagram found currently scores 0 for both IG criteria — this is a known gap (no-IG leads should arguably score +40 as maximum-opportunity leads).
 
 **Claude Haiku is used for two things:** image QA review (`ai_reviewer.py`, scores 1–10 per image, PASS if avg ≥ 7.0) and caption generation (`content_generator.py`, 12 themed captions/month). Both use `claude-haiku-4-5-20251001`. `ai_reviewer.py` only writes `scores_json`, `avg_score`, and `verdict` to `ImageVariants` — it must never set the `approved` field, which is exclusively set by the human review dashboard.
 
@@ -105,6 +112,8 @@ Monthly crons:
 **Cron security:** All cron endpoints check `Authorization: Bearer {CRON_SECRET}`. All Railway endpoints do the same. `PIPELINE_SERVICE_URL` is server-side only — never in `NEXT_PUBLIC_*`.
 
 **Agency branding** on the home page (`app/page.tsx`) is driven by two env vars: `NEXT_PUBLIC_AGENCY_NAME` (default `"Mike's Social"`) and `NEXT_PUBLIC_AGENCY_EMAIL` (default `"mike@youragency.com.au"`). Set these in Vercel to rebrand without touching code.
+
+**Scraper is Playwright-based (no Apify).** `pipeline/scraper.py` uses headless Chromium to scrape Google Maps — no paid API needed. Daily cap controlled by `SCRAPER_MAX_DAILY` env var (default 200); state persisted in `pipeline/.scraper_daily.json` (gitignored). Email extraction checks the homepage first, then falls back to `/contact`, `/contact-us`, `/about`, `/about-us`, `/get-in-touch`. Instagram handle is always taken from the homepage. The scraper requires open outbound internet access — it cannot run in restricted cloud environments (use Railway or local). To run locally: `pip install playwright && playwright install chromium`.
 
 ## Airtable tables
 
