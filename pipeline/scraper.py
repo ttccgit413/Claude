@@ -57,31 +57,71 @@ def _save_daily_state(count: int) -> None:
 
 # ── Website data extraction ───────────────────────────────────────────────────
 
-def _extract_from_website(url: str) -> tuple[str | None, str | None]:
-    """Fetch the business website once and return (email, ig_handle)."""
-    if not url:
-        return None, None
+_CONTACT_PATHS = ["/contact", "/contact-us", "/about", "/about-us", "/get-in-touch"]
+
+
+def _clean_email(candidate: str) -> str | None:
+    candidate = candidate.lower()
+    domain = candidate.split("@")[1]
+    if "noreply" in candidate or domain in _IGNORED_EMAIL_DOMAINS:
+        return None
+    return candidate
+
+
+def _parse_html(html: str) -> tuple[str | None, str | None]:
+    """Extract (email, ig_handle) from raw HTML."""
+    email = None
+    m = _EMAIL_RE.search(html)
+    if m:
+        email = _clean_email(m.group(0))
+
+    ig_handle = None
+    ig_matches = _IG_HANDLE_RE.findall(html)
+    if ig_matches:
+        handle = ig_matches[0].split("?")[0].strip("/")
+        ig_handle = handle if len(handle) >= 2 else None
+
+    return email, ig_handle
+
+
+def _fetch_html(url: str) -> str | None:
     try:
         resp = requests.get(url, timeout=8, headers={"User-Agent": _USER_AGENT})
-        html = resp.text
-
-        email = None
-        m = _EMAIL_RE.search(html)
-        if m:
-            candidate = m.group(0).lower()
-            domain = candidate.split("@")[1]
-            if "noreply" not in candidate and domain not in _IGNORED_EMAIL_DOMAINS:
-                email = candidate
-
-        ig_handle = None
-        ig_matches = _IG_HANDLE_RE.findall(html)
-        if ig_matches:
-            handle = ig_matches[0].split("?")[0].strip("/")
-            ig_handle = handle if len(handle) >= 2 else None
-
-        return email, ig_handle
+        return resp.text
     except Exception:
+        return None
+
+
+def _extract_from_website(url: str) -> tuple[str | None, str | None]:
+    """
+    Fetch the business website and return (email, ig_handle).
+    Checks the homepage first, then common contact pages if no email is found.
+    """
+    if not url:
         return None, None
+
+    base = url.rstrip("/")
+
+    # Always collect IG handle from homepage (most reliable location)
+    homepage_html = _fetch_html(url)
+    if homepage_html is None:
+        return None, None
+
+    email, ig_handle = _parse_html(homepage_html)
+    if email:
+        return email, ig_handle
+
+    # No email on homepage — try contact pages
+    for path in _CONTACT_PATHS:
+        html = _fetch_html(base + path)
+        if html is None:
+            continue
+        contact_email, contact_ig = _parse_html(html)
+        if contact_email:
+            # Keep homepage IG handle if we already found one
+            return contact_email, ig_handle or contact_ig
+
+    return None, ig_handle
 
 
 # ── Playwright helpers ────────────────────────────────────────────────────────

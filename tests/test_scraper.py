@@ -38,6 +38,10 @@ BIZ_0_HTML = b"""<!DOCTYPE html><html><body>
 </body></html>"""
 
 BIZ_1_HTML = b"""<!DOCTYPE html><html><body>
+<p>Welcome to Smith St Cuts</p>
+</body></html>"""
+
+BIZ_1_CONTACT_HTML = b"""<!DOCTYPE html><html><body>
 <p>Email: hello@smithstcuts.com.au</p>
 </body></html>"""
 
@@ -111,6 +115,11 @@ class MockMapsHandler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/html")
             self.end_headers()
             self.wfile.write(BIZ_1_HTML)
+        elif self.path == "/biz/1/contact":
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(BIZ_1_CONTACT_HTML)
         else:
             self.send_response(404)
             self.end_headers()
@@ -247,6 +256,76 @@ class TestExtractFromWebsite(unittest.TestCase):
         with self._fake_get(html):
             _, ig = scraper._extract_from_website("http://example.com")
         self.assertIsNone(ig)
+
+    def test_falls_back_to_contact_page_for_email(self):
+        """No email on homepage → should try /contact and find it there."""
+        homepage_html = '<a href="https://instagram.com/mysalon">IG</a>'
+        contact_html = '<p>Book now: hello@mysalon.com.au</p>'
+
+        responses = {
+            "http://example.com": homepage_html,
+            "http://example.com/contact": contact_html,
+        }
+
+        def side_effect(url, **kwargs):
+            resp = unittest.mock.MagicMock()
+            resp.text = responses.get(url, "")
+            return resp
+
+        with patch("scraper.requests.get", side_effect=side_effect):
+            email, ig = scraper._extract_from_website("http://example.com")
+
+        self.assertEqual(email, "hello@mysalon.com.au")
+        self.assertEqual(ig, "mysalon")  # IG from homepage preserved
+
+    def test_contact_page_tried_in_order(self):
+        """Stops at the first contact page that has an email."""
+        calls = []
+
+        def side_effect(url, **kwargs):
+            calls.append(url)
+            resp = unittest.mock.MagicMock()
+            resp.text = "book@salon.com.au" if url.endswith("/contact-us") else ""
+            return resp
+
+        with patch("scraper.requests.get", side_effect=side_effect):
+            email, _ = scraper._extract_from_website("http://example.com")
+
+        self.assertEqual(email, "book@salon.com.au")
+        # /contact was tried first (returned nothing), then /contact-us succeeded
+        self.assertIn("http://example.com/contact", calls)
+        self.assertIn("http://example.com/contact-us", calls)
+        # Should NOT have continued after finding the email
+        self.assertNotIn("http://example.com/about", calls)
+
+    def test_homepage_email_skips_contact_pages(self):
+        """If homepage has an email, contact pages should never be fetched."""
+        calls = []
+
+        def side_effect(url, **kwargs):
+            calls.append(url)
+            resp = unittest.mock.MagicMock()
+            resp.text = "info@salon.com.au"
+            return resp
+
+        with patch("scraper.requests.get", side_effect=side_effect):
+            email, _ = scraper._extract_from_website("http://example.com")
+
+        self.assertEqual(email, "info@salon.com.au")
+        self.assertEqual(calls, ["http://example.com"])  # only homepage fetched
+
+    def test_returns_ig_even_when_no_email_found_anywhere(self):
+        """Should still return IG handle from homepage even if no email found on any page."""
+        def side_effect(url, **kwargs):
+            resp = unittest.mock.MagicMock()
+            resp.text = '<a href="https://instagram.com/nosalonemail">IG</a>' if url == "http://example.com" else ""
+            return resp
+
+        with patch("scraper.requests.get", side_effect=side_effect):
+            email, ig = scraper._extract_from_website("http://example.com")
+
+        self.assertIsNone(email)
+        self.assertEqual(ig, "nosalonemail")
 
 
 # ── 3. Playwright helper integration tests (local mock server) ────────────────
