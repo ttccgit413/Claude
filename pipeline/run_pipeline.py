@@ -10,7 +10,7 @@ Steps executed:
   3. Score each lead (hot/warm/cold)
   4. Write hot leads to Airtable (skip duplicates)
   5. Generate images + AI review (handled by image_gen.py and ai_reviewer.py)
-  6. SMS notification when new leads are ready for review
+  6. Telegram notification when new leads are ready for review
 """
 import argparse
 import json
@@ -20,7 +20,7 @@ import airtable_client as db
 from scraper import scrape_google_maps
 from enricher import check_instagram, scrape_brand, get_competitors
 from scorer import score_lead
-from notify import sms
+from notify import telegram
 
 
 def run(query: str, location: str, limit: int = 100) -> dict:
@@ -80,7 +80,7 @@ def run(query: str, location: str, limit: int = 100) -> dict:
             _run_image_pipeline(lead_id, lead_data, brand)
 
     if new_hot > 0:
-        sms(f"Pipeline done: {new_hot} new HOT leads ready at /review")
+        telegram(f"Pipeline done: {new_hot} new HOT leads ready at /review")
 
     return {"new_hot": new_hot, "total_scraped": len(raw_leads)}
 

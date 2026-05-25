@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLeadByEmail, updateLead } from "@/lib/airtable";
-import { sendSms } from "@/lib/twilio";
+import { sendTelegram } from "@/lib/telegram";
 
 // SendGrid inbound parse webhook.
 // Configure at: https://app.sendgrid.com/settings/parse
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   const snippet = text.slice(0, 120).replace(/\n/g, " ");
   const airtableLink = `https://airtable.com/${process.env.AIRTABLE_BASE_ID}`;
 
-  await sendSms(
+  await sendTelegram(
     `🔥 REPLY — ${lead.name}\n${senderEmail}\nSubject: ${subject}\n"${snippet}"\nLink: ${airtableLink}`
   );
 

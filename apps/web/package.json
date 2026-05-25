@@ -15,8 +15,7 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^2.15.4",
-    "slugify": "^1.6.9",
-    "twilio": "^5.13.1"
+    "slugify": "^1.6.9"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

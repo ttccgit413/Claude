@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateLead } from "@/lib/airtable";
-import { sendSms } from "@/lib/twilio";
+import { sendTelegram } from "@/lib/telegram";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest, { params }: Props) {
 
   await updateLead(id, { pipeline_status: "cta_clicked" } as Parameters<typeof updateLead>[1]);
 
-  await sendSms(
+  await sendTelegram(
     `🔥 CTA CLICK — lead page\nName: ${name}\nEmail: ${email}\nLead ID: ${id}`
   );
 

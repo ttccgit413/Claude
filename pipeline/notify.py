@@ -1,17 +1,13 @@
 import os
-from twilio.rest import Client
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-def sms(message: str) -> None:
-    client = Client(
-        os.environ["TWILIO_ACCOUNT_SID"],
-        os.environ["TWILIO_AUTH_TOKEN"],
-    )
-    client.messages.create(
-        body=message,
-        from_=os.environ["TWILIO_FROM_NUMBER"],
-        to=os.environ["TWILIO_TO_NUMBER"],
-    )
+def telegram(message: str) -> None:
+    token = os.environ["TELEGRAM_BOT_TOKEN"]
+    chat_id = os.environ["TELEGRAM_CHAT_ID"]
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    resp = requests.post(url, json={"chat_id": chat_id, "text": message}, timeout=10)
+    resp.raise_for_status()
